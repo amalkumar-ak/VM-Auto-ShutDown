@@ -8,7 +8,7 @@ param(
     [bool]$Simulate = $false
 )
 
-$VERSION = "1.0.0"
+$VERSION = "1.0.1"
 
 # ---------------------------------------------------------------------------
 # Function: CheckScheduleEntry
@@ -65,7 +65,7 @@ function CheckScheduleEntry ([string]$TimeRange)
                 }
                 else
                 {
-                    # Skip — detected day of week that isn't today
+                    # Skip â€” detected day of week that isn't today
                 }
             }
             # Otherwise attempt to parse as a specific date, e.g. 'December 25'
@@ -200,7 +200,7 @@ try
 
     Write-Output "Current UTC/GMT time [$($currentTime.ToString("dddd, yyyy MMM dd HH:mm:ss"))] Machine time: $((Get-Date).ToString("dddd, yyyy MMM dd HH:mm:ss"))"
 
-    # Connect using System Managed Identity (modern approach — no stored credentials needed)
+    # Connect using System Managed Identity (modern approach â€” no stored credentials needed)
     # $AzureSubscriptionName = Get-AutomationVariable -Name 'Default Azure Subscription'
     Connect-AzAccount -Identity
 
@@ -211,7 +211,8 @@ try
     $resourceManagerVMList = @(Get-AzResource | where { $_.ResourceType -like "Microsoft.*/virtualMachines" })
 
     # Get resource groups that are tagged for automatic shutdown
-    $taggedResourceGroups = @(Get-AzResourceGroup | where { $_.Tags.Count -gt 0 -and $_.Tags.Name -contains "AutoShutdownSchedule" })
+    #$taggedResourceGroups = @(Get-AzResourceGroup | where { $_.Tags.Count -gt 0 -and $_.Tags.Name -contains "AutoShutdownSchedule" })
+    $taggedResourceGroups = @(Get-AzResourceGroup | where { $_.Tags.Count -gt 0 -and $_.Tags["AutoShutdownSchedule"] })
     $taggedResourceGroupNames = @($taggedResourceGroups | select -ExpandProperty ResourceGroupName)
     Write-Output "Found [$($taggedResourceGroups.Count)] schedule-tagged resource groups in subscription."
 
@@ -226,7 +227,8 @@ try
         $schedule = $null
 
         # Check for direct tag on the VM
-        if($vm.ResourceType -eq "Microsoft.Compute/virtualMachines" -and $vm.Tags -and $vm.Tags.Keys)
+        #if($vm.ResourceType -eq "Microsoft.Compute/virtualMachines" -and $vm.Tags -and $vm.Tags.Keys)
+        if ($vm.ResourceType -eq "Microsoft.Compute/virtualMachines" -and $vm.Tags -and $vm.Tags.Count -gt 0)
         {
             $arraytags = $vm.Tags
             foreach($tag in $arraytags.Keys)
@@ -241,14 +243,15 @@ try
         # Check if the VM's resource group has the tag (inherited schedule)
         elseif($taggedResourceGroupNames -contains $vm.ResourceGroupName)
         {
-            # VM belongs to a tagged resource group — use the group tag
+            # VM belongs to a tagged resource group â€” use the group tag
             $parentGroup = $taggedResourceGroups | where ResourceGroupName -eq $vm.ResourceGroupName
-            $schedule    = ($parentGroup.Tags | where Name -eq "AutoShutdownSchedule")["Value"]
+            #$schedule    = ($parentGroup.Tags | where Name -eq "AutoShutdownSchedule")["Value"]
+            $schedule = $parentGroup.Tags["AutoShutdownSchedule"]
             Write-Output "[$($vm.Name)]: Found parent resource group schedule tag with value: $schedule"
         }
         else
         {
-            # No direct or inherited tag — skip this VM
+            # No direct or inherited tag â€” skip this VM
             Write-Output "[$($vm.Name)]: Not tagged for shutdown directly or via membership in a tagged resource group. Skipping."
             continue
         }
@@ -260,7 +263,7 @@ try
             continue
         }
 
-        # Parse the tag value — expects comma-separated time ranges
+        # Parse the tag value â€” expects comma-separated time ranges
         $timeRangeList = @($schedule -split "," | foreach { $_.Trim() })
 
         # Check each range against current time
@@ -279,7 +282,7 @@ try
         # Enforce desired power state based on result
         if($scheduleMatched)
         {
-            # Schedule matched — shut down the VM if running
+            # Schedule matched â€” shut down the VM if running
             Write-Output "[$($vm.Name)]: Current time [$currentTime] falls within the scheduled shutdown window [$matchedSchedule]. Ensuring VM is stopped."
             AssertVirtualMachinePowerState `
                 -VirtualMachine $vm `
@@ -289,7 +292,7 @@ try
         }
         else
         {
-            # Schedule not matched — start VM if stopped
+            # Schedule not matched â€” start VM if stopped
             Write-Output "[$($vm.Name)]: Current time falls outside of all scheduled shutdown ranges. Ensuring VM is started."
             AssertVirtualMachinePowerState `
                 -VirtualMachine $vm `
