@@ -8,7 +8,7 @@ param(
     [bool]$Simulate = $false
 )
 
-$VERSION = "2.0.2"
+$VERSION = "1.0.0"
 
 # ---------------------------------------------------------------------------
 # Function: CheckScheduleEntry
